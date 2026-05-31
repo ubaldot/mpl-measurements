@@ -102,6 +102,10 @@ class InteractiveScope:
     # Line selection
     # -----------------------------------------------------
     def on_pick(self, event: PickEvent) -> None:
+        toolbar = self.fig.canvas.toolbar
+        if toolbar is not None and toolbar.mode:
+            return
+
         ax = event.artist.axes
         if ax not in self.state:
             return
