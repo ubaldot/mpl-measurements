@@ -4,11 +4,11 @@ build-backend = "setuptools.build_meta"
 
 [project]
 # General info
-name = "mpl_measurements"
-version = "0.0.1"
+name = "mpl-measurements"
+version = "0.0.3"
 
 # Requirements
-requires-python = ">=3.12"
+requires-python = ">=3.11"
 
 # Dependencies
 dependencies = [
@@ -20,7 +20,7 @@ dependencies = [
 authors = [
 { name="Ubaldo Tiberi", email="ubaldo.tiberi@gmail.com" },
 ]
-description = "mpl_measurements add measurements to your matplotlib plots"
+description = "mpl-measurements add measurements to your matplotlib plots"
 readme = "README.md"
 license = { file="LICENSE" }
 classifiers = [
@@ -37,7 +37,6 @@ keywords = [
 
 # For developers
 [project.optional-dependencies]
-build = ["pdm"]
 dev = [
     "ruff",
     "build",
@@ -45,15 +44,15 @@ dev = [
 ]
 
 [project.urls]
-"Homepage" = "https://github.com/ubaldot/mpl_measurements"
-"Bug Tracker" = "https://github.com/ubaldot/mpl_measurements/issues"
+"Homepage" = "https://github.com/ubaldot/mpl-measurements"
+"Bug Tracker" = "https://github.com/ubaldot/mpl-measurements/issues"
 
 # ===================================
 # Formatting
 # ===================================
 [tool.ruff]
 line-length = 80
-target-version = "py312"
+target-version = "py311"
 
 [tool.ruff.format]
 quote-style = "double"

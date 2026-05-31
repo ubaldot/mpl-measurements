@@ -1,11 +1,11 @@
-# mpl_measurements
+# mpl-measurements
 Interactive measurement tools for Matplotlib.
 
 Click two points on any plotted line to compute engineering-style measurements
 such as Δx, Δy, and signal statistics (min, max, RMS) over a selected
 interval.
 
-![mpl_measurements](mpl_measurements.png)
+![mpl-measurements](mpl_measurements.png)
 
 To use it, simply call `InteractiveScope(fig)` where `fig` is your figure.
 Example:
