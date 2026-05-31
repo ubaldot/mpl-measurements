@@ -53,7 +53,7 @@ class InteractiveScope:
         axes: Axes | list[Axes] | None = None,
     ) -> None:
         self.fig = fig
-
+        fig._interactive_scope = self
         self.axes = axes if axes is not None else fig.axes
 
         # normalize single Axes → list
