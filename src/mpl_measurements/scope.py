@@ -6,12 +6,12 @@ from typing import TypedDict
 from matplotlib.axes import Axes
 from matplotlib.figure import Figure
 from matplotlib.text import Text
-from matplotlib.backend_bases import PickEvent
-from matplotlib.backend_bases import MouseEvent
+from matplotlib.backend_bases import PickEvent, KeyEvent, MouseEvent, Event
 from matplotlib.lines import Line2D
 from matplotlib.transforms import Bbox
-
+from matplotlib.axes._base import _AxesBase
 from numpy.typing import NDArray
+from matplotlib.lines import Line2D
 
 
 def compute_window_stats(
@@ -19,7 +19,7 @@ def compute_window_stats(
     ydata: NDArray[np.floating],
     x1: float,
     x2: float,
-) -> tuple[np.floating, np.floating, np.floating]:
+) -> tuple[np.floating | float, np.floating | float, np.floating | float]:
     xmin, xmax = sorted([x1, x2])
     mask = (xdata >= xmin) & (xdata <= xmax)
     y_win = ydata[mask]
@@ -49,15 +49,25 @@ class AxisState(TypedDict):
 # =========================================================
 class InteractiveScope:
     def __init__(
-        self, fig: Figure, axes: Axes | list[Axes] | None = None
+        self,
+        fig: Figure,
+        axes: Axes | list[Axes] | None = None,
+        box_width_inches: float = 1.4,
+        box_padding_inches: float = 0.1,
     ) -> None:
         self.fig = fig
-        fig._interactive_scope = self
 
-        self.axes = axes if axes is not None else fig.axes
+        # This is needed otherwise things got garbage collected
+        setattr(fig, "_interactive_scope", self)
 
-        if isinstance(self.axes, Axes):
-            self.axes = [self.axes]
+        # Always list[Axes]
+        self.axes: list[Axes]
+        if axes is None:
+            self.axes = list(fig.axes)
+        elif isinstance(axes, Axes):
+            self.axes = [axes]
+        else:
+            self.axes = axes
 
         if not self.axes:
             raise ValueError("No axes available for InteractiveScope")
@@ -68,21 +78,25 @@ class InteractiveScope:
 
         # ---- layout adjustment ----
         right_margin = self.get_figure_right_margin()
-        print(f"right margin = {right_margin}")
 
-        MIN_SPACE = 0.25
-        NEW_RIGHT = 1 - MIN_SPACE
+        width_inches, _ = fig.get_size_inches()
+        right_margin_inches = right_margin * width_inches
 
-        if right_margin < MIN_SPACE:
+        print(f"\nright margin = {right_margin_inches} inches\n")
+
+        box_width: float = box_width_inches / width_inches
+
+        if right_margin_inches < box_width_inches:
+            NEW_RIGHT = 1 - box_width
             fig.subplots_adjust(right=NEW_RIGHT)
             fig.canvas.draw_idle()
 
-        BOX_PADDING = 0.038
-        left = 1 - MIN_SPACE + BOX_PADDING
-        width = MIN_SPACE - 4 * BOX_PADDING
+        box_padding = box_padding_inches / width_inches
+        left: float = 1 - box_width + box_padding
 
-        info_ax = fig.add_axes([left, 0.1, width, 0.8])
-        info_ax.axis("off")
+        # TODO: start from here!
+        info_ax = fig.add_axes((left, 0.1, box_width, 0.8))
+        # info_ax.axis("off")
 
         info_text = info_ax.text(
             0,
@@ -94,14 +108,14 @@ class InteractiveScope:
         )
         self.info_text = info_text
 
-        # 2. Force layout + text to be computed
+        # if right_margin_inches < box_width_inches:
+        # Force layout + text to be computed
         self.fig.canvas.draw()
-
-        # 3. Resize figure
+        # Resize figure
         w, h = self.fig.get_size_inches()
-        self.fig.set_size_inches(w * 1.2, h)
-
-        # 4. Redraw
+        # self.fig.set_size_inches(w * 1.2, h)
+        self.fig.set_size_inches(w + box_width_inches, h)
+        # Redraw
         fig.canvas.draw_idle()
 
         # state per axis
@@ -113,7 +127,9 @@ class InteractiveScope:
                 "positions": [],
             }
 
-        self.state = {ax: new_axis_state() for ax in self.axes}
+        self.state: dict[_AxesBase, AxisState] = {
+            ax: new_axis_state() for ax in self.axes
+        }
         # print(f"self.state = {self.state}")
 
         # connect events (store IDs for future cleanup)
@@ -125,13 +141,18 @@ class InteractiveScope:
         # print("Init done")
 
     def get_figure_right_margin(self) -> float:
+        # Return as portion of the figure
         fig = self.fig
 
         fig.canvas.draw()
-        renderer = fig.canvas.get_renderer()
+        renderer = fig.canvas.get_renderer()  # type: ignore[attr-defined]
 
-        bboxes = [ax.get_tightbbox(renderer) for ax in self.axes]
-        bboxes = [b for b in bboxes if b is not None]
+        bboxes: list[Bbox] = []
+
+        for ax in self.axes:
+            b = ax.get_tightbbox(renderer)
+            if b is not None:
+                bboxes.append(b)
 
         if not bboxes:
             return 1.0  # no axes → full space available
@@ -146,7 +167,9 @@ class InteractiveScope:
     # -----------------------------------------------------
     # Line selection
     # -----------------------------------------------------
-    def on_pick(self, event: PickEvent) -> None:
+    def on_pick(self, event: Event) -> None:
+        if not isinstance(event, PickEvent):
+            return
         # print("ON PICK")
 
         toolbar = self.fig.canvas.toolbar
@@ -163,7 +186,11 @@ class InteractiveScope:
         state = self.state[ax]
         # print(f"state = {state}")
 
-        state["selected_line"] = event.artist
+        artist = event.artist
+        if not isinstance(artist, Line2D):
+            return
+
+        state["selected_line"] = artist
         # print(f"event.artist = {event.artist}")
 
         # reset visual emphasis
@@ -176,6 +203,8 @@ class InteractiveScope:
 
         selected.set_linewidth(3)
 
+        if not isinstance(ax, Axes):
+            return
         self.info_text.set_text(
             f"{ax.get_title()}\n"
             f"Selected: {selected.get_label()}\n"
@@ -187,7 +216,10 @@ class InteractiveScope:
     # -----------------------------------------------------
     # Cursor placement
     # -----------------------------------------------------
-    def on_click(self, event: MouseEvent) -> None:
+    def on_click(self, event: Event) -> None:
+        if not isinstance(event, MouseEvent):
+            return
+
         # print("ON CLICK\n")
         ax = event.inaxes
         if ax not in self.state:
@@ -202,8 +234,8 @@ class InteractiveScope:
         if line is None or event.xdata is None:
             return
 
-        xdata = line.get_xdata()
-        ydata = line.get_ydata()
+        xdata = np.asarray(line.get_xdata())
+        ydata = np.asarray(line.get_ydata())
 
         # snap to nearest sample
         idx = np.argmin(np.abs(xdata - event.xdata))
@@ -244,8 +276,8 @@ class InteractiveScope:
 
         (x1, y1), (x2, y2) = state["positions"]
 
-        xdata = line.get_xdata()
-        ydata = line.get_ydata()
+        xdata = np.asarray(line.get_xdata())
+        ydata = np.asarray(line.get_ydata())
 
         y_min, y_max, rms = compute_window_stats(xdata, ydata, x1, x2)
 
@@ -269,7 +301,10 @@ class InteractiveScope:
     # -----------------------------------------------------
     # Reset
     # -----------------------------------------------------
-    def on_key(self, event: PickEvent) -> None:
+    def on_key(self, event: Event) -> None:
+        if not isinstance(event, KeyEvent):
+            return
+
         if event.key != "r":
             return
 
