@@ -124,6 +124,7 @@ class InteractiveScope:
 
     def ensure_panel_fits_text(self) -> None:
         fig = self.fig
+        fig_width_in = fig.get_figwidth()
 
         renderer = fig.canvas.get_renderer()  # type: ignore
         if renderer is None:
@@ -135,17 +136,16 @@ class InteractiveScope:
         text_width_in = bbox.width / fig.dpi
 
         padding_in = self._padding_in
-        required_width_in = text_width_in + padding_in
+        required_width_in = text_width_in + 2 * padding_in
 
         #  only grow panel width
         # EPS = 0.05
-        EPS = max(0.05, 0.02 * self._panel_width)
+        EPS = max(0.02, 0.02 * self._panel_width)
+        print(f"EPS: {EPS}")
+        print(f"panel width: {self._panel_width}")
+        print(f"required_width: {required_width_in}")
         if required_width_in > self._panel_width + EPS:
-            self._panel_width = required_width_in
-
-            fig_width_in = fig.get_figwidth()
-
-            panel_fraction = min(self._panel_width / fig_width_in, 0.6)
+            panel_fraction = min(required_width_in / fig_width_in, 0.6)
 
             #  shrink axes
             fig.subplots_adjust(right=1 - panel_fraction)
@@ -159,6 +159,7 @@ class InteractiveScope:
             self.info_text.axes.set_position((left, 0.1, panel_fraction, 0.8))
 
             fig.canvas.draw_idle()
+            self._panel_width = required_width_in
 
     def get_figure_right_margin(self) -> float:
         # Return as portion of the figure
@@ -226,6 +227,7 @@ class InteractiveScope:
             f"Selected: {selected.get_label()}\n"
             "Click twice to place cursors"
         )
+        self.fig.canvas.draw_idle()
 
     # -----------------------------------------------------
     # Cursor placement
