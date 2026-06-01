@@ -55,6 +55,8 @@ class InteractiveScope:
         box_padding_inches: float = 0.1,
     ) -> None:
         self.fig = fig
+        self._panel_width = box_width_inches
+        self._padding_in = box_padding_inches
 
         # This is needed otherwise things got garbage collected
         setattr(fig, "_interactive_scope", self)
@@ -120,40 +122,52 @@ class InteractiveScope:
         )
         self.cid_key = fig.canvas.mpl_connect("key_press_event", self.on_key)
 
-        self._max_fig_width = fig.get_figwidth()
-
-    def ensure_canvas_fits_text(self) -> None:
+    def ensure_panel_fits_text(self) -> None:
         fig = self.fig
 
-        fig.canvas.draw()
-        renderer = fig.canvas.get_renderer()  # type: ignore[attr-defined]
+        renderer = fig.canvas.get_renderer()  # type: ignore
+        if renderer is None:
+            fig.canvas.draw()
+            renderer = fig.canvas.get_renderer()  # type: ignore
 
         bbox = self.info_text.get_window_extent(renderer)
 
-        inv = fig.transFigure.inverted()
-        bbox_fig = inv.transform_bbox(bbox)
+        text_width_in = bbox.width / fig.dpi
 
-        overflow_fraction = bbox_fig.x1 - 1.0
-        print(f"\noverflow_fraction: {overflow_fraction}\n")
+        padding_in = self._padding_in
+        required_width_in = text_width_in + padding_in
 
-        EPS = 0.001
-        if overflow_fraction > EPS:
-            w, h = fig.get_size_inches()
-            print("RESIZE\n")
+        #  only grow panel width
+        # EPS = 0.05
+        EPS = max(0.05, 0.02 * self._panel_width)
+        if required_width_in > self._panel_width + EPS:
+            self._panel_width = required_width_in
 
-            new_width = w * (1 + overflow_fraction) + 0.5
+            fig_width_in = fig.get_figwidth()
 
-            # if new_width > self._max_fig_width:
-            #     self._max_fig_width = new_width
-            fig.set_size_inches(new_width, h)
+            panel_fraction = min(self._panel_width / fig_width_in, 0.6)
+
+            #  shrink axes
+            fig.subplots_adjust(right=1 - panel_fraction)
+
+            #  move + resize panel
+            left = 1 - panel_fraction
+
+            if self.info_text.axes is None:
+                return
+
+            self.info_text.axes.set_position((left, 0.1, panel_fraction, 0.8))
+
             fig.canvas.draw_idle()
 
     def get_figure_right_margin(self) -> float:
         # Return as portion of the figure
         fig = self.fig
 
-        fig.canvas.draw()
-        renderer = fig.canvas.get_renderer()  # type: ignore[attr-defined]
+        renderer = fig.canvas.get_renderer()  # type: ignore
+        if renderer is None:
+            fig.canvas.draw()
+            renderer = fig.canvas.get_renderer()  # type: ignore
 
         bboxes: list[Bbox] = []
 
@@ -212,7 +226,6 @@ class InteractiveScope:
             f"Selected: {selected.get_label()}\n"
             "Click twice to place cursors"
         )
-        # self.ensure_canvas_fits_text()
 
     # -----------------------------------------------------
     # Cursor placement
@@ -268,7 +281,7 @@ class InteractiveScope:
                 f"{ax.get_title()}\n{line.get_label()}\nClick second point"
             )
 
-            self.ensure_canvas_fits_text()
+            self.ensure_panel_fits_text()
             return
 
         (x1, y1), (x2, y2) = state["positions"]
@@ -293,7 +306,7 @@ class InteractiveScope:
             f"RMS = {rms:.3f}"
         )
 
-        self.ensure_canvas_fits_text()
+        self.ensure_panel_fits_text()
 
     # -----------------------------------------------------
     # Reset
@@ -316,4 +329,4 @@ class InteractiveScope:
             state["positions"].clear()
 
         self.info_text.set_text("Reset — select a line")
-        self.ensure_canvas_fits_text()
+        self.ensure_panel_fits_text()
