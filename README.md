@@ -21,15 +21,25 @@ x = np.linspace(0, 10, 1000)
 fig, axs = plt.subplots(2, 2, sharex=True, squeeze=False)
 
 for ii, ax in enumerate(axs):
-    ax.plot(x, np.sin(x + ii), label=f"sin {ii}", picker=5)
-    ax.plot(x, np.cos(x + ii), label=f"cos {ii}", picker=5)
+    ax.plot(x, np.sin(x + ii), label=f"sin {ii}")
+    ax.plot(x, np.cos(x + ii), label=f"cos {ii}")
     ax.set_title(f"Axes {ii}")
     ax.legend()
 
-scope = InteractiveScope(fig) # This is the line!
+InteractiveScope(fig) # This is the line!
 
 # You can also call e.g. InteractiveScope(fig, axes=[axs[0], axs[1]]) if you
-# want the measurements tool active only on axes axs[0], axs[1]
+# want the measurements tool active only on axes axs[0], axs[1]. See
+docstring for more info.
 
 plt.show()
 ```
+## ⚠️  Notes on layout engines
+
+If a Matplotlib layout engine is used (e.g. `"tight"` or `"constrained"`),
+you must reserve space on the right side using `rect`:
+
+```python
+    fig.set_layout_engine("tight", rect=[0, 0, 0.75, 1])>[Info]
+```
+Otherwise, the info panel may overlap with the plot axes.

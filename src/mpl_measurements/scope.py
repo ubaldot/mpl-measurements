@@ -1,3 +1,53 @@
+"""
+InteractiveScope: lightweight interactive measurement tool for Matplotlib figures.
+
+This module provides the `InteractiveScope` class, which adds interactive
+capabilities to an existing Matplotlib figure:
+
+Features
+--------
+- Line selection via mouse click (pick events)
+- Cursor placement (two points) on selected signals
+- Automatic computation of:
+    * Δx, Δy
+    * Min / Max values within the window
+    * RMS value
+- Dynamic info panel showing measurements
+- Adaptive panel sizing based on content
+
+Usage
+-----
+Instantiate the scope *after* creating your figure:
+
+    fig = ds.plot()
+    scope = InteractiveScope(fig)
+
+Interaction
+-----------
+- Click on a line → select it
+- Click twice on the plot → place cursors
+- Press "r" → reset cursors
+- Measurements are displayed in the right info panel
+
+Notes
+-----
+- The scope attaches itself to the figure to avoid garbage collection.
+- The info panel is implemented as a dedicated axis on the right side.
+- Layout is dynamically adjusted to accommodate text content.
+- Compatible with Matplotlib layout engines if a right-side margin is reserved.
+- If a Matplotlib layout engine is used (e.g. "tight", "constrained"),
+  the user should reserve space on the right side using `rect`, e.g.:
+
+      fig.set_layout_engine("tight", rect=[0, 0, 0.75, 1])
+
+  Otherwise, the info panel may overlap with the plot axes.
+
+Limitations
+-----------
+- Assumes line-based plots (Line2D objects)
+- Works with mouse-based interaction only
+"""
+
 import numpy as np
 
 from typing import TypedDict
@@ -33,9 +83,6 @@ def compute_window_stats(
     return y_min, y_max, rms
 
 
-# =========================================================
-# State container
-# =========================================================
 class AxisState(TypedDict):
     selected_line: Line2D | None
     cursor_lines: list
@@ -43,10 +90,36 @@ class AxisState(TypedDict):
     positions: list[tuple[float, float]]
 
 
-# =========================================================
-# Main interactive controller
-# =========================================================
 class InteractiveScope:
+    """
+    Add interactive measurement tools to a Matplotlib figure.
+
+    This class enables selecting plotted lines and placing cursors to
+    extract measurements such as distances, extrema, and RMS values.
+
+    Parameters
+    ----------
+    fig : matplotlib.figure.Figure
+        Target figure where interaction is enabled
+    axes : Axes or list[Axes], optional
+        Axes to enable interaction on (default: all axes in figure)
+    box_width_inches : float
+        Initial width of the information panel (in inches). Default 1.4
+    box_padding_inches : float
+        Padding inside the information panel (in inches). Default 0.1
+
+    Notes
+    -----
+    - The class modifies the figure layout by adding a right-side panel
+    - The panel automatically expands to fit its content
+    - Interaction is event-driven (pick, click, key press)
+
+    Typical workflow:
+        1. Create plot
+        2. Instantiate InteractiveScope
+        3. Interact with the figure
+    """
+
     def __init__(
         self,
         fig: Figure,
@@ -90,11 +163,14 @@ class InteractiveScope:
         left = 1 - box_width
         info_ax = fig.add_axes((left, 0.1, box_width, 0.8))
         info_ax.axis("off")
+        info_ax.set_navigate(False)
+        info_ax.set_zorder(-1)
 
         box_padding_fraction = box_padding_inches / box_width_inches
         info_text = info_ax.text(
             box_padding_fraction,
-            1 - box_padding_fraction,
+            # 1 - box_padding_fraction,
+            1.0,
             "Select a line",
             va="top",
             transform=info_ax.transAxes,
@@ -139,11 +215,7 @@ class InteractiveScope:
         required_width_in = text_width_in + 2 * padding_in
 
         #  only grow panel width
-        # EPS = 0.05
         EPS = max(0.02, 0.02 * self._panel_width)
-        print(f"EPS: {EPS}")
-        print(f"panel width: {self._panel_width}")
-        print(f"required_width: {required_width_in}")
         if required_width_in > self._panel_width + EPS:
             panel_fraction = min(required_width_in / fig_width_in, 0.6)
 
@@ -331,4 +403,4 @@ class InteractiveScope:
             state["positions"].clear()
 
         self.info_text.set_text("Reset — select a line")
-        self.ensure_panel_fits_text()
+        self.fig.canvas.draw_idle()
