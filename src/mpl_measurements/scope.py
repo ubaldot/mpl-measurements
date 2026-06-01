@@ -54,7 +54,12 @@ class InteractiveScope:
     ) -> None:
         self.fig = fig
         fig._interactive_scope = self
+
         self.axes = axes if axes is not None else fig.axes
+
+        for ax in self.axes:
+            for line in ax.get_lines():
+                line.set_picker(5)  # pixel tolerance
 
         # normalize single Axes → list
         if isinstance(self.axes, Axes):
@@ -90,6 +95,7 @@ class InteractiveScope:
             }
 
         self.state = {ax: new_axis_state() for ax in self.axes}
+        print(f"self.state = {self.state}")
 
         # connect events (store IDs for future cleanup)
         self.cid_pick = fig.canvas.mpl_connect("pick_event", self.on_pick)
@@ -97,22 +103,30 @@ class InteractiveScope:
             "button_press_event", self.on_click
         )
         self.cid_key = fig.canvas.mpl_connect("key_press_event", self.on_key)
+        print("Init done")
 
     # -----------------------------------------------------
     # Line selection
     # -----------------------------------------------------
     def on_pick(self, event: PickEvent) -> None:
+        print("ON PICK")
+
         toolbar = self.fig.canvas.toolbar
         if toolbar is not None and toolbar.mode:
+            print("EXITING")
             return
 
         ax = event.artist.axes
         if ax not in self.state:
+            print("EXITING 1")
+            print(f"ax not in self.state = {self.state}")
             return
 
         state = self.state[ax]
+        print(f"state = {state}")
 
         state["selected_line"] = event.artist
+        print(f"event.artist = {event.artist}")
 
         # reset visual emphasis
         for line in ax.get_lines():
@@ -136,12 +150,17 @@ class InteractiveScope:
     # Cursor placement
     # -----------------------------------------------------
     def on_click(self, event: MouseEvent) -> None:
+        print("ON CLICK\n")
         ax = event.inaxes
         if ax not in self.state:
+            print(f"ax = {ax}")
             return
 
+        print(f"\nax = {ax}\n")
         state = self.state[ax]
+        print(f"\nstate = {state}\n")
         line = state["selected_line"]
+        print(f"line = {line}\n")
         if line is None or event.xdata is None:
             return
 

@@ -10,8 +10,10 @@ def my_plot():
     axs = axs.flatten()
 
     for ii, ax in enumerate(axs):
-        ax.plot(x, np.sin(x + ii), label=f"sin {ii}", picker=5)
-        ax.plot(x, np.cos(x + ii), label=f"cos {ii}", picker=5)
+        # ax.plot(x, np.sin(x + ii), label=f"sin {ii}", picker=5)
+        # ax.plot(x, np.cos(x + ii), label=f"cos {ii}", picker=5)
+        ax.plot(x, np.sin(x + ii), label=f"sin {ii}")
+        ax.plot(x, np.cos(x + ii), label=f"cos {ii}")
         ax.set_title(f"Axes {ii}")
         ax.legend()
 
