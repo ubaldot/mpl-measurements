@@ -6,21 +6,21 @@ capabilities to an existing Matplotlib figure:
 
 Features
 --------
-- Line selection via mouse click (pick events)
-- Cursor placement (two points) on selected signals
+- Line selection via mouse click
 - Automatic computation of:
     * Δx, Δy
     * Min / Max values within the window
     * RMS value
 - Dynamic info panel showing measurements
-- Adaptive panel sizing based on content
 
 Usage
 -----
 Instantiate the scope *after* creating your figure:
 
-    fig = ds.plot()
-    scope = InteractiveScope(fig)
+    >>> x = np.linspace(0, 10, 1000)
+    >>> y = x**2
+    >>> fig, ax = plt.subplots(1,1)
+    >>> InteractiveScope(fig)
 
 Interaction
 -----------
@@ -31,9 +31,6 @@ Interaction
 
 Notes
 -----
-- The scope attaches itself to the figure to avoid garbage collection.
-- The info panel is implemented as a dedicated axis on the right side.
-- Layout is dynamically adjusted to accommodate text content.
 - Compatible with Matplotlib layout engines if a right-side margin is reserved.
 - If a Matplotlib layout engine is used (e.g. "tight", "constrained"),
   the user should reserve space on the right side using `rect`, e.g.:
