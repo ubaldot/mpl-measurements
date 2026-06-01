@@ -32,7 +32,7 @@ InteractiveScope(fig) # This is the line!
 
 # You can also call e.g. InteractiveScope(fig, axes=[axs[0], axs[1]]) if you
 # want the measurements tool active only on axes axs[0], axs[1]. See
-docstring for more info.
+# docstring for more info.
 
 plt.show()
 ```
